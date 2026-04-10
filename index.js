@@ -10,8 +10,8 @@ const twilioClient = twilio(
   process.env.TWILIO_AUTH_TOKEN
 );
 
-const TO_NUMBER = "+447575828858";
-const FROM_NUMBER = "+441595722102";
+const TO_NUMBER = "whatsapp:+447575828858";
+const FROM_NUMBER = "whatsapp:+14155238886";
 
 // Extract structured fields from Vapi's structuredData (if configured),
 // falling back to whatever we can pull from the summary/transcript.
