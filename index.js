@@ -16,24 +16,43 @@ const FROM_NUMBER = "whatsapp:+14155238886";
 function extractLeadDetails(payload) {
   const msg = payload.message || payload;
 
-  // Primary: body.message.analysis.structuredData
-  const structured = msg.analysis?.structuredData || {};
+  // body.message.analysis.structuredData is keyed by dynamic schema UUID.
+  // Loop through all keys and find the one whose .result has our fields.
+  const structuredData = msg.analysis?.structuredData || {};
+  let result = {};
+  for (const key of Object.keys(structuredData)) {
+    const candidate = structuredData[key]?.result;
+    if (candidate && typeof candidate === "object") {
+      result = candidate;
+      break;
+    }
+  }
 
-  const name     = structured.name     || fallbackFromText(msg, "name")     || "Unknown";
-  const phone    = structured.phone    || msg.customer?.number              || "Unknown";
-  const issue    = structured.issue    || fallbackFromText(msg, "issue")    || "See summary below";
-  const location = structured.location || fallbackFromText(msg, "location") || "Unknown";
+  const phone    = result.phone    || msg.customer?.number              || "Unknown";
+  const issue    = result.issue    || fallbackFromText(msg, "issue")    || "See summary below";
+  const location = result.location || fallbackFromText(msg, "location") || "Unknown";
+
+  // Name is not in the schema — extract from transcript
+  const name = result.name || extractNameFromTranscript(msg.transcript) || "Unknown";
 
   const summary = msg.analysis?.summary || msg.summary || msg.transcript || "(no summary available)";
 
   return { name, phone, issue, location, summary };
 }
 
-// Crude keyword search in summary/transcript as last resort
+// Look for "my name is X" or "I'm X" or "this is X" in the transcript
+function extractNameFromTranscript(transcript) {
+  if (!transcript) return null;
+  const match = transcript.match(
+    /(?:my name is|i'm|i am|this is)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/i
+  );
+  return match ? match[1].trim() : null;
+}
+
+// Keyword search in summary/transcript as last resort for other fields
 function fallbackFromText(msg, field) {
   const text = msg.analysis?.summary || msg.summary || msg.transcript || "";
   const patterns = {
-    name:     /name[:\s]+([A-Za-z ]+)/i,
     issue:    /issue[:\s]+([^\n.]+)/i,
     location: /location[:\s]+([^\n.]+)/i,
   };
